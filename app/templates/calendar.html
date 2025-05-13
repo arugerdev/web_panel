@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+
+		<div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3>Calendario Mensual</h3>
+                        <div>
+                            <a href="/calendar?month={{ prev_month.month }}&year={{ prev_month.year }}" 
+                               class="btn btn-sm btn-light me-2">
+                                &lt; {{ prev_month.text }}
+                            </a>
+                            <span class="fw-bold">{{ current_month }}</span>
+                            <a href="/calendar?month={{ next_month.month }}&year={{ next_month.year }}" 
+                               class="btn btn-sm btn-light ms-2">
+                                {{ next_month.text }} &gt;
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Día</th>
+                                    <th>Registros</th>
+                                    <th>Total</th>
+                                    <th>Promedio</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for day in daily_totals %}
+                                <tr>
+                                    <td>{{ day.day }}</td>
+                                    <td>{{ day.count }}</td>
+                                    <td>{{ "%.2f"|format(day.max_value) }}</td>
+                                    <td>{{ "%.2f"|format(day.average) }}</td>
+                                    <td>
+                                        <a href="/?date={{ day.day }}" class="btn btn-sm btn-info">
+                                            Ver Detalles
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3>Resumen Mensual</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Días con datos
+                            <span class="badge bg-primary rounded-pill">{{ daily_totals|length }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Registros totales
+                            <span class="badge bg-primary rounded-pill">{{ monthly_summary.total_count }}</span>
+                        </li>
+			<li class="list-group-item d-flex justify-content-between align-items-center">
+			    Máximo mensual
+			    <span class="badge bg-primary rounded-pill">
+			        {{ "%.2f"|format(monthly_summary.max_value) }}  <!-- Cambiado de grand_total -->
+			    </span>
+			</li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Promedio diario
+                            <span class="badge bg-primary rounded-pill">{{ "%.2f"|format(monthly_summary.daily_avg) }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

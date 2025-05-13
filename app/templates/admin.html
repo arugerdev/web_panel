@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h2>Panel de Administración</h2>
+            </div>
+            <div class="card-body">
+                {% if message %}
+                <div class="alert alert-info">{{ message }}</div>
+                {% endif %}
+                
+                <div class="d-grid gap-2">
+                    <form method="POST" action="/admin" onsubmit="return confirm('¿Estás seguro?');">
+                        <input type="hidden" name="action" value="reboot">
+                        <button type="submit" class="btn btn-warning btn-lg mb-3">
+                            <i class="bi bi-arrow-repeat"></i> Reiniciar Dispositivo
+                        </button>
+                    </form>
+                    
+                    <form method="POST" action="/admin" onsubmit="return confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.');">
+                        <input type="hidden" name="action" value="clear_db">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="bi bi-trash"></i> Borrar Base de Datos
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5>Estadísticas:</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Registros en DB:
+                                    <span class="badge bg-primary rounded-pill">
+                                        {{ count }}
+                                    </span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Último dato:
+                                    <span class="text-muted">
+                                        {{ last_record[1] if last_record else 'N/A' }}
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

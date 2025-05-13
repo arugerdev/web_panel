@@ -1,0 +1,55 @@
+body {
+    padding-top: 0px;
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#wifi-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Estilos para móviles */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+}
+
+/* Estilos para el calendario */
+.calendar-day {
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.calendar-day:hover {
+    background-color: #f8f9fa;
+}
+.calendar-day.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* Estilos para tablas */
+.table-responsive {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
