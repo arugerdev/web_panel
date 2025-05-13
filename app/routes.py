@@ -371,21 +371,30 @@ def admin_panel():
             
             elif action == 'update_system':
                 try:
-                    # Ruta al script de actualización
                     update_script = '/home/rud1/scripts/update_system.sh'
                     
                     if not os.path.exists(update_script):
                         message = "Error: Script de actualización no encontrado"
                     else:
-                        # Ejecutar el script como root
-                        result = execute_command(['sudo', update_script, ' &'])
+                        # Ejecutar en segundo plano y desconectar completamente
+                        import subprocess
+                        import os
+                        from threading import Thread
                         
-                        if result['success']:
-                            message = "Sistema actualizado correctamente. Reiniciando..."
-                        else:
-                            message = f"Error en la actualización: {result.get('error', 'Desconocido')}"
+                        def run_update():
+                            # Usamos nohup y redirección para desconectar completamente
+                            subprocess.Popen([
+                                'sudo', 'nohup', update_script,
+                                '>/tmp/update.log', '2>/tmp/update_error.log', '&'
+                            ], preexec_fn=os.setpgrp)
+                        
+                        # Lanzar en un hilo para no bloquear la respuesta
+                        Thread(target=run_update).start()
+                        
+                        message = "Actualización iniciada. El sistema se reiniciará cuando termine."
+                        
                 except Exception as e:
-                    message = f"Error al ejecutar actualización: {str(e)}"  
+                    message = f"Error al iniciar actualización: {str(e)}"
             
             return render_template('admin.html', 
                                 message=message,
