@@ -10,6 +10,7 @@ from dateutil.relativedelta import relativedelta
 from contextlib import closing
 from functools import lru_cache
 from flask_cors import CORS
+from threading import Thread
 
 # Configuración inicial
 app = Flask(__name__)
@@ -377,9 +378,6 @@ def admin_panel():
                         message = "Error: Script de actualización no encontrado"
                     else:
                         # Ejecutar en segundo plano y desconectar completamente
-                        import subprocess
-                        import os
-                        from threading import Thread
                         
                         def run_update():
                             # Usamos nohup y redirección para desconectar completamente
