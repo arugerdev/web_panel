@@ -378,7 +378,7 @@ def admin_panel():
                         message = "Error: Script de actualización no encontrado"
                     else:
                         # Ejecutar el script como root
-                        result = execute_command(['sudo', update_script])
+                        result = execute_command(['sudo', update_script, ' &'])
                         
                         if result['success']:
                             message = "Sistema actualizado correctamente. Reiniciando..."
