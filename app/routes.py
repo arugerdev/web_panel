@@ -369,6 +369,24 @@ def admin_panel():
                 except Exception as e:
                     message = f"Error al borrar datos: {str(e)}"
             
+            elif action == 'update_system':
+                try:
+                    # Ruta al script de actualización
+                    update_script = '/home/rud1/scripts/update_system.sh'
+                    
+                    if not os.path.exists(update_script):
+                        message = "Error: Script de actualización no encontrado"
+                    else:
+                        # Ejecutar el script como root
+                        result = execute_command(['sudo', update_script])
+                        
+                        if result['success']:
+                            message = "Sistema actualizado correctamente. Reiniciando..."
+                        else:
+                            message = f"Error en la actualización: {result.get('error', 'Desconocido')}"
+                except Exception as e:
+                    message = f"Error al ejecutar actualización: {str(e)}"  
+            
             return render_template('admin.html', 
                                 message=message,
                                 count=count,

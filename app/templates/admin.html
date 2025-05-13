@@ -11,7 +11,7 @@
                 {% if message %}
                 <div class="alert alert-info">{{ message }}</div>
                 {% endif %}
-                
+
                 <div class="d-grid gap-2">
                     <form method="POST" action="/admin" onsubmit="return confirm('¿Estás seguro?');">
                         <input type="hidden" name="action" value="reboot">
@@ -19,15 +19,24 @@
                             <i class="bi bi-arrow-repeat"></i> Reiniciar Dispositivo
                         </button>
                     </form>
-                    
-                    <form method="POST" action="/admin" onsubmit="return confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.');">
+
+                    <form method="POST" action="/admin"
+                        onsubmit="return confirm('¿Actualizar el sistema? Esto reiniciará los servicios.');">
+                        <input type="hidden" name="action" value="update_system">
+                        <button type="submit" class="btn btn-info btn-lg mb-3">
+                            <i class="bi bi-cloud-arrow-down"></i> Actualizar Sistema
+                        </button>
+                    </form>
+
+                    <form method="POST" action="/admin"
+                        onsubmit="return confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.');">
                         <input type="hidden" name="action" value="clear_db">
                         <button type="submit" class="btn btn-danger btn-lg">
                             <i class="bi bi-trash"></i> Borrar Base de Datos
                         </button>
                     </form>
                 </div>
-                
+
                 <div class="mt-4">
                     <div class="card">
                         <div class="card-body">
