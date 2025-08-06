@@ -7,18 +7,30 @@
             <i class="bi bi-calendar"></i> Ver Calendario
         </a>
         <div class="btn-group ms-2">
-            <a href="/?limit=10" class="btn btn-secondary {% if not request.args.get('limit') or request.args.get('limit') == '10' %}active{% endif %}">
-                <i class="bi bi-list-ul"></i> Últimos 10
+            <a href="/?limit=10{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if not request.args.get('limit') or request.args.get('limit') == '10' %}active{% endif %}">
+                <i class="bi bi-list-ul"></i> 10
             </a>
-
-            <a href="/?limit=50" class="btn btn-secondary {% if request.args.get('limit') == '50' %}active{% endif %}">
-                <i class="bi bi-list-ul"></i> Últimos 50
+            <a href="/?limit=30{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if request.args.get('limit') == '30' %}active{% endif %}">
+                <i class="bi bi-list-ul"></i> 30
             </a>
-            <a href="/?limit=1000" class="btn btn-secondary {% if request.args.get('limit') == '1000' %}active{% endif %}">
-                <i class="bi bi-list-check"></i> Ver Todos
+            <a href="/?limit=50{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if request.args.get('limit') == '50' %}active{% endif %}">
+                <i class="bi bi-list-ul"></i> 50
+            </a>
+            <a href="/?limit=100{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if request.args.get('limit') == '100' %}active{% endif %}">
+                <i class="bi bi-list-ul"></i> 100
+            </a>
+            <a href="/?limit=300{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if request.args.get('limit') == '300' %}active{% endif %}">
+                <i class="bi bi-list-ul"></i> 300
+            </a>
+            <a href="/?limit=500{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if request.args.get('limit') == '500' %}active{% endif %}">
+                <i class="bi bi-list-ul"></i> 500
+            </a>
+            <a href="/?limit=all{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}" class="btn btn-secondary {% if request.args.get('limit') == 'all' %}active{% endif %}">
+                <i class="bi bi-list-check"></i> Todos
             </a>
         </div>
-	<button id="downloadCsvBtn" class="btn btn-success ms-2">
+
+        <button id="downloadCsvBtn" class="btn btn-success ms-2">
             <i class="bi bi-file-earmark-excel"></i> Exportar CSV
         </button>
         {% if request.args.get('date') %}
@@ -37,20 +49,43 @@
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h2>Datos del Sensor</h2>
-                <div>
-                    <small class="text-muted">Mostrando 
-                        <span class="fw-bold">
-                            {% if request.args.get('limit') == 'all' %}
-                                todos los registros
-                            {% else %}
-                                últimos {{ data|length }} registros
-                            {% endif %}
-                        </span>
-                    </small>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showValuesToggle" checked>
+                    <label class="form-check-label" for="showValuesToggle">Mostrar valores</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showIntervalsToggle" checked>
+                    <label class="form-check-label" for="showIntervalsToggle">Mostrar intervalos</label>
                 </div>
             </div>
             <div class="card-body">
-                <canvas id="sensorChart" height="200"></canvas>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="chartTypeSelect" class="form-label">Tipo de gráfica:</label>
+                        <select class="form-select" id="chartTypeSelect">
+                            <option value="line">Línea</option>
+                            <option value="bubble">Burbujas</option>
+                            <option value="doughnut">Donut</option>
+                            <option value="polarArea">Polar</option>
+                            <option value="radar">Radar</option>
+                            <option value="bar">Barras</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="timeRangeSelect" class="form-label">Rango de tiempo:</label>
+                        <div class="input-group">
+                            <input type="datetime-local" id="startTimeFilter" class="form-control">
+                            <span class="input-group-text">a</span>
+                            <input type="datetime-local" id="endTimeFilter" class="form-control">
+                            <button class="btn btn-primary" type="button" id="applyTimeFilter">
+                                <i class="bi bi-filter"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" style="position: relative; height: 400px;">
+                    <canvas id="sensorChart" style="width: 100%; height: 100%;"></canvas>
+                </div>
             </div>
         </div>
 
@@ -80,7 +115,7 @@
                                 <td>{{ item.value }}</td>
                                 <td>{{ item.timestamp }}</td>
                                 <td>
-                                    <a href="/?date={{ item.timestamp.split(' ')[0] }}" class="btn btn-sm btn-outline-info">
+                                    <a href="/?date={{ item.timestamp.split(' ')[0] }}{% if request.args.get('limit') %}&limit={{ request.args.get('limit') }}{% endif %}" class="btn btn-sm btn-outline-info">
                                         <i class="bi bi-calendar-day"></i> Día
                                     </a>
                                 </td>
@@ -103,7 +138,7 @@
                     <strong>Actual:</strong>
                     <span id="last-reading">Cargando...</span>
                 </div>
-		<hr>
+                <hr>
                 <div class="mb-3">
                     <strong>Red WiFi actual:</strong>
                     <span id="current-wifi">Cargando...</span>
@@ -140,8 +175,15 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Variables globales
+    let sensorChart;
+    let rawData = [];
+    
     // Obtener parámetros de la URL
     const urlParams = new URLSearchParams(window.location.search);
     const dateFilter = urlParams.get('date');
@@ -156,132 +198,296 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cargar datos iniciales
     loadData();
 
-	// Asignar evento al botón
-	document.getElementById('downloadCsvBtn').addEventListener('click', downloadCSV);
-    // Configurar el filtro de fecha
-    document.getElementById('applyDateFilter').addEventListener('click', function() {
+    // Configurar eventos
+    document.getElementById('downloadCsvBtn').addEventListener('click', downloadCSV);
+    document.getElementById('applyDateFilter').addEventListener('click', applyDateFilter);
+    document.getElementById('applyTimeFilter').addEventListener('click', applyTimeFilter);
+    document.getElementById('showIntervalsToggle').addEventListener('change', updateChartData);
+    document.getElementById('showValuesToggle').addEventListener('change', updateChartData);
+    document.getElementById('chartTypeSelect').addEventListener('change', updateChartType);
+
+    function applyDateFilter() {
         const dateValue = document.getElementById('dateFilter').value;
         if (dateValue) {
             window.location.href = `/?date=${dateValue}`;
         }
-    });
+    }
+
+    function applyTimeFilter() {
+        const startTime = document.getElementById('startTimeFilter').value;
+        const endTime = document.getElementById('endTimeFilter').value;
+        
+        if (startTime && endTime) {
+            const filteredData = filterDataByTimeRange(rawData, startTime, endTime);
+            updateChartWithData(filteredData);
+        } else {
+            updateChartWithData(rawData);
+        }
+    }
+
+    function filterDataByTimeRange(data, startTime, endTime) {
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        return data.filter(item => {
+            const itemTime = new Date(item.timestamp);
+            return itemTime >= start && itemTime <= end;
+        });
+    }
 
     // Función para cargar datos
     function loadData() {
         let apiUrl = '/api/sensor/data?';
         if (dateFilter) apiUrl += `date=${dateFilter}&`;
         if (limit) apiUrl += `limit=${limit}`;
-	console.log(apiUrl)
+
         fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
-                updateChart(data);
+                rawData = data.data;
+                updateChartWithData(rawData);
                 updateSystemInfo();
                 updateStatistics();
+                
+                // Configurar rangos de tiempo
+                if (rawData.length > 0) {
+                    const firstDate = new Date(rawData[0].timestamp);
+                    const lastDate = new Date(rawData[rawData.length - 1].timestamp);
+                    
+                    document.getElementById('startTimeFilter').value = formatDateTimeLocal(firstDate);
+                    document.getElementById('endTimeFilter').value = formatDateTimeLocal(lastDate);
+                }
             });
     }
 
-	// Función para descargar CSV
-	function downloadCSV() {
-	    const dateFilter = document.getElementById('dateFilter').value;
-	    const currentDate = dateFilter || new Date().toISOString().split('T')[0];
-	    const currentTime = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-	    const filename = `${currentDate}-${currentTime}-rud1.csv`;
-	    
-	    let apiUrl = '/api/sensor/data?';
-	    if (dateFilter) apiUrl += `date=${dateFilter}&`;
-	    apiUrl += 'limit=all';  // Obtenemos todos los datos del día
-	    
-	    fetch(apiUrl)
-	        .then(response => response.json())
-	        .then(data => {
-	            if (data.data && data.data.length > 0) {
-	                // Crear contenido CSV
-	                let csvContent = "Valor,Fecha/Hora\n";
-	                data.data.forEach(item => {
-	                    csvContent += `${item.value},${item.timestamp}\n`;
-	                });
-	                
-	                // Crear y descargar archivo
-	                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-	                const url = URL.createObjectURL(blob);
-	                const link = document.createElement('a');
-	                link.setAttribute('href', url);
-	                link.setAttribute('download', filename);
-	                link.style.visibility = 'hidden';
-	                document.body.appendChild(link);
-	                link.click();
-	                document.body.removeChild(link);
-	            } else {
-	                alert('No hay datos para exportar.');
-	            }
-	        })
-	        .catch(error => {
-	            console.error('Error al generar CSV:', error);
-	            alert('Error al generar el archivo CSV.');
-	        });
-	}
+    function formatDateTimeLocal(date) {
+        return date.toISOString().slice(0, 16);
+    }
 
-	
-    // Actualizar el gráfico
-    function updateChart(data) {
-	console.log(data);
-        const timestamps = data.data.map(item => item.timestamp).reverse();
-        const values = data.data.map(item => item.value).reverse();
-
-        const ctx = document.getElementById('sensorChart').getContext('2d');
+    function updateChartWithData(data) {
+        const showIntervals = document.getElementById('showIntervalsToggle').checked;
+        const showValues = document.getElementById('showValuesToggle').checked;
+        const chartType = document.getElementById('chartTypeSelect').value;
         
-        window.sensorChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: timestamps,
-                datasets: [{
-                    label: 'Valor del Sensor',
-                    data: values,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                    borderWidth: 1,
-                    tension: 0.1,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    },
+        // Preparar datos
+        const sortedData = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        const timestamps = sortedData.map(item => item.timestamp);
+        const values = sortedData.map(item => item.value);
+        
+        // Calcular intervalos si es necesario
+        let intervals = [];
+        if (showIntervals && sortedData.length > 1) {
+            for (let i = 1; i < sortedData.length; i++) {
+                const prevTime = new Date(sortedData[i-1].timestamp);
+                const currTime = new Date(sortedData[i].timestamp);
+                intervals.push((currTime - prevTime) / 1000);
+            }
+            // Añadir un 0 al principio para mantener la misma longitud
+            intervals.unshift(0);
+        }
+        
+        // Actualizar gráfica
+        updateChart({
+            timestamps: timestamps,
+            values: values,
+            intervals: intervals,
+            chartType: chartType,
+            showIntervals: showIntervals,
+            showValues: showValues
+        });
+    }
+
+    function updateChartData() {
+        updateChartWithData(rawData);
+    }
+
+    function updateChartType() {
+        if (sensorChart) {
+            sensorChart.config.type = document.getElementById('chartTypeSelect').value;
+            sensorChart.update();
+        }
+    }
+
+    // Función para opciones comunes de gráficas
+    function getCommonChartOptions() {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                zoom: {
                     zoom: {
-                        zoom: {
-                            wheel: {
-                                enabled: true
-                            },
-                            pinch: {
-                                enabled: true
-                            },
-                            mode: 'xy'
-                        }
+                        wheel: { enabled: true },
+                        pinch: { enabled: true },
+                        mode: 'xy',
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'xy',
+                    },
+                    limits: {
+                        x: { min: 'original', max: 'original' },
+                        y: { min: 'original', max: 'original' }
                     }
                 },
-                scales: {
-                    x: {
-                        display: true,
-                        title: {
-                            display: true,
-                            text: 'Tiempo'
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                },
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        tooltipFormat: 'YYYY-MM-DD HH:mm:ss',
+                        displayFormats: {
+                            hour: 'HH:mm',
+                            day: 'MMM D',
+                            week: 'MMM D',
+                            month: 'MMM YYYY',
+                            year: 'YYYY'
                         }
                     },
-                    y: {
-                        display: true,
-                        title: {
-                            display: true,
-                            text: 'Valor'
+                    title: { display: true, text: 'Tiempo' },
+                    grid: { display: true }
+                },
+                y: {
+                    title: { display: true, text: 'Valor' },
+                    beginAtZero: false,
+                    grid: { display: true }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        };
+    }
+
+    // Actualizar el gráfico principal
+    function updateChart(data) {
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        
+        // Destruir la gráfica anterior si existe
+        if (sensorChart && typeof sensorChart.destroy === 'function') {
+            sensorChart.destroy();
+        }
+
+
+        
+        // Verificar que tenemos datos para mostrar
+        if (data.timestamps.length === 0) {
+            console.warn('No hay datos para mostrar en el gráfico');
+            return;
+        }
+
+        try {
+            // Preparar datasets
+            const datasets = [];
+
+            if (data.showValues && data.values.length > 0) {
+                datasets.push({
+                    label: 'Valores',
+                    data: data.values,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                });
+            }
+
+            if (data.showIntervals && data.intervals.length > 0) {
+                datasets.push({
+                    label: 'Intervalo entre lecturas (segundos)',
+                    data: data.intervals,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    borderWidth: 1,
+                    //type: data.chartType,
+                    yAxisID: 'y1'
+                });
+            }
+
+            sensorChart = new Chart(ctx, {
+                type: data.chartType,
+                data: {
+                    labels: data.timestamps,
+                    datasets: datasets
+                },
+                options: {
+                    ...getCommonChartOptions(),
+                    scales: {
+                        ...getCommonChartOptions().scales,
+                        y1: {
+                            type: 'linear',
+                            display: data.showIntervals,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Segundos'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+
+        } catch (error) {
+            console.error('Error al crear el gráfico:', error);
+        }
+    }
+
+    // Función para descargar CSV
+    function downloadCSV() {
+        const dateFilter = document.getElementById('dateFilter').value;
+        const currentDate = dateFilter || new Date().toISOString().split('T')[0];
+        const currentTime = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
+        const filename = `${currentDate}-${currentTime}-rud1.csv`;
+        
+        let apiUrl = '/api/sensor/data?';
+        if (dateFilter) apiUrl += `date=${dateFilter}&`;
+        apiUrl += 'limit=all';
+        
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.data && data.data.length > 0) {
+                    const sortedData = data.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    const dataWithTimeDiff = sortedData.map((item, index, array) => {
+                        if (index === 0) {
+                            return {...item, time_diff: 0};
+                        }
+                        const prevTime = new Date(array[index-1].timestamp);
+                        const currTime = new Date(item.timestamp);
+                        const diffSeconds = Math.round((currTime - prevTime) / 1000);
+                        return {...item, time_diff: diffSeconds};
+                    });
+                    
+                    let csvContent = "Valor,Fecha/Hora,Tiempo entre lecturas (segundos)\n";
+                    dataWithTimeDiff.forEach(item => {
+                        csvContent += `${item.value},${item.timestamp},${item.time_diff}\n`;
+                    });
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('No hay datos para exportar.');
+                }
+            })
+            .catch(error => {
+                console.error('Error al generar CSV:', error);
+                alert('Error al generar el archivo CSV.');
+            });
     }
 
     // Actualizar información del sistema
@@ -305,11 +511,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 const totalRecords = data.reduce((sum, day) => sum + day.count, 0);
-                const dailyAvg = data[0].average
-		
-		console.log(dailyAvg)
-		console.log(data)
-
+                const dailyAvg = data[0]?.average || 0;
                 document.getElementById('total-records').textContent = totalRecords;
                 document.getElementById('daily-avg').textContent = dailyAvg.toFixed(2);
             });
@@ -321,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.length > 0) {
-                    const dayData = data.filter((d) => d.day === date)[0];
+                    const dayData = data.find(d => d.day === date) || data[0];
                     document.getElementById('daily-summary').innerHTML = `
                         <ul class="list-group">
                             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -329,12 +531,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="badge bg-primary rounded-pill">${dayData.count}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-        			Valor Maximo
+                                Valor Máximo
                                 <span class="badge bg-success rounded-pill">${dayData.max_value}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 Promedio
-                                <span class="badge bg-info rounded-pill">${dayData.average}</span>
+                                <span class="badge bg-info rounded-pill">${dayData.average.toFixed(2)}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Promedio entre lecturas
+                                <span class="badge bg-dark rounded-pill">${dayData.avg_diff} seg</span>
                             </li>
                         </ul>
                     `;
@@ -345,7 +551,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Actualizar datos periódicamente
     setInterval(() => {
         updateSystemInfo();
-//	loadData();
     }, 10000);
 });
 </script>

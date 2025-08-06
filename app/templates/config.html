@@ -1,160 +1,152 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 offset-md-2">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
         <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h2>Configuración WiFi</h2>
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Configuración de Red WiFi</h5>
+            <button id="scan-wifi" class="btn btn-sm btn-light">
+              <i class="bi bi-arrow-repeat"></i> Escanear
+            </button>
+          </div>
+          <div class="card-body">
+            {% if message %}
+              <div class="alert {% if 'exitosamente' in message %}alert-success{% else %}alert-danger{% endif %}">
+                {{ message }}
+              </div>
+            {% endif %}
+
+            <p><strong>Red actual:</strong> {{ current_ssid }}</p>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="show-password">
+              <label class="form-check-label" for="show-password">
+                Mostrar contraseña
+              </label>
             </div>
-            <div class="card-body">
-                {% if message %}
-                <div class="alert {% if 'exitosamente' in message %}alert-success{% else %}alert-danger{% endif %}">
-                    {{ message }}
+
+            <div id="wifi-list" class="list-group mb-3">
+              {% for network in wifi_networks %}
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>{{ network.ssid }}</strong>
+                  <span class="text-muted ms-2">Señal: {{ network.signal }}%</span>
+                  <span class="badge bg-info text-dark ms-2">{{ network.security }}</span>
                 </div>
-                {% endif %}
-                
-                <div class="mb-4">
-                    <h4>Estado actual: {{ current_ssid }}</h4>
-                    <button id="scan-wifi" class="btn btn-secondary mb-3">
-                        <i class="bi bi-arrow-repeat"></i> Escanear redes
+                <button class="btn btn-sm btn-outline-primary connect-btn" 
+                        data-ssid="{{ network.ssid }}"
+                        data-security="{{ network.security }}">
+                  Conectar
+                </button>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div id="connect-form" class="card" style="display: none;">
+              <div class="card-body">
+                <h6 class="fw-bold">Conectar a: <span id="connect-ssid"></span></h6>
+                <form method="POST" action="/config">
+                  <input type="hidden" id="ssid" name="ssid">
+                  <div class="mb-3" id="password-container">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="password" name="password">
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">
+                      <i class="bi bi-wifi"></i> Conectar
                     </button>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="show-password">
-                            <label class="form-check-label" for="show-password">
-                                Mostrar contraseña
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div id="wifi-list" class="list-group">
-                        {% for network in wifi_networks %}
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>{{ network.ssid }}</strong>
-                                    <span class="text-muted ms-2">(Señal: {{ network.signal }}%)</span>
-                                    <span class="badge bg-info text-dark ms-2">
-                                        {{ network.security }}
-                                    </span>
-                                </div>
-                                <button class="btn btn-sm btn-outline-primary connect-btn" 
-                                        data-ssid="{{ network.ssid }}"
-                                        data-security="{{ network.security }}">
-                                    Conectar
-                                </button>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <div id="connect-form" class="card mb-3" style="display: none;">
-                    <div class="card-body">
-                        <h5>Conectar a: <span id="connect-ssid" class="fw-bold"></span></h5>
-                        <form method="POST" action="/config">
-                            <input type="hidden" id="ssid" name="ssid">
-                            <div class="mb-3" id="password-container">
-                                <label for="password" class="form-label">Contraseña:</label>
-                                <input type="password" class="form-control" id="password" name="password">
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-wifi"></i> Conectar
-                            </button>
-                            <button type="button" id="cancel-connect" class="btn btn-secondary">
-                                Cancelar
-                            </button>
-                        </form>
-                    </div>
-                </div>
+                    <button type="button" id="cancel-connect" class="btn btn-secondary">
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
+
+          </div>
         </div>
+      </div>
     </div>
-</div>
-{% endblock %}
+  </main>
+
+  {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Mostrar/ocultar contraseña
-    const showPassword = document.getElementById('show-password');
-    const passwordField = document.getElementById('password');
-    
-    showPassword.addEventListener('change', function() {
-        passwordField.type = this.checked ? 'text' : 'password';
-    });
+  
+  <script src="/static/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const showPassword = document.getElementById('show-password');
+      const passwordField = document.getElementById('password');
 
-    // Escanear redes WiFi
-    document.getElementById('scan-wifi').addEventListener('click', function() {
-        fetch('/api/wifi/networks')
-            .then(response => response.json())
-            .then(networks => {
-                const wifiList = document.getElementById('wifi-list');
-                wifiList.innerHTML = '';
-                
-                networks.forEach(network => {
-                    const item = document.createElement('div');
-                    item.className = 'list-group-item';
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${network.ssid}</strong>
-                                <span class="text-muted ms-2">(Señal: ${network.signal}%)</span>
-                                <span class="badge bg-info text-dark ms-2">
-                                    ${network.security}
-                                </span>
-                            </div>
-                            <button class="btn btn-sm btn-outline-primary connect-btn" 
-                                    data-ssid="${network.ssid}"
-                                    data-security="${network.security}">
-                                Conectar
-                            </button>
-                        </div>
-                    `;
-                    wifiList.appendChild(item);
-                });
-                
-                // Agregar eventos a los nuevos botones
-                setupConnectButtons();
-            });
-    });
-
-    // Configurar botones de conexión
-    function setupConnectButtons() {
-        document.querySelectorAll('.connect-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const ssid = this.getAttribute('data-ssid');
-                const security = this.getAttribute('data-security');
-                
-                document.getElementById('connect-ssid').textContent = ssid;
-                document.getElementById('ssid').value = ssid;
-                
-                const passwordContainer = document.getElementById('password-container');
-                const passwordField = document.getElementById('password');
-                
-                if (security === 'Abierta') {
-                    passwordContainer.style.display = 'none';
-                    passwordField.value = '';
-                } else {
-                    passwordContainer.style.display = 'block';
-                    passwordField.placeholder = 'Ingresa la contraseña';
-                    passwordField.focus();
-                }
-                
-                document.getElementById('connect-form').style.display = 'block';
-            });
+      if (showPassword) {
+        showPassword.addEventListener('change', function () {
+          if (passwordField) {
+            passwordField.type = this.checked ? 'text' : 'password';
+          }
         });
-    }
+      }
 
-    // Inicializar botones
-    setupConnectButtons();
-    
-    // Cancelar conexión
-    document.getElementById('cancel-connect').addEventListener('click', function() {
+      document.getElementById('scan-wifi').addEventListener('click', function () {
+        fetch('/api/wifi/networks')
+          .then(response => response.json())
+          .then(networks => {
+            const wifiList = document.getElementById('wifi-list');
+            wifiList.innerHTML = '';
+
+            networks.forEach(network => {
+              const item = document.createElement('div');
+              item.className = 'list-group-item d-flex justify-content-between align-items-center';
+              item.innerHTML = `
+                <div>
+                  <strong>${network.ssid}</strong>
+                  <span class="text-muted ms-2">Señal: ${network.signal}%</span>
+                  <span class="badge bg-info text-dark ms-2">${network.security}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary connect-btn" 
+                        data-ssid="${network.ssid}"
+                        data-security="${network.security}">
+                  Conectar
+                </button>`;
+              wifiList.appendChild(item);
+            });
+
+            setupConnectButtons();
+          });
+      });
+
+      function setupConnectButtons() {
+        document.querySelectorAll('.connect-btn').forEach(btn => {
+          btn.addEventListener('click', function () {
+            const ssid = this.getAttribute('data-ssid');
+            const security = this.getAttribute('data-security');
+
+            document.getElementById('connect-ssid').textContent = ssid;
+            document.getElementById('ssid').value = ssid;
+
+            const passwordContainer = document.getElementById('password-container');
+            const passwordField = document.getElementById('password');
+
+            if (security === 'Abierta') {
+              passwordContainer.style.display = 'none';
+              passwordField.value = '';
+            } else {
+              passwordContainer.style.display = 'block';
+              passwordField.placeholder = 'Ingresa la contraseña';
+              passwordField.focus();
+            }
+
+            document.getElementById('connect-form').style.display = 'block';
+          });
+        });
+      }
+
+      setupConnectButtons();
+
+      document.getElementById('cancel-connect').addEventListener('click', function () {
         document.getElementById('connect-form').style.display = 'none';
+      });
     });
-});
-</script>
+  </script>
 {% endblock %}

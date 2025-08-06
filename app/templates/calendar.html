@@ -1,35 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card mb-4">
-
-		<div class="card-header bg-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h3>Calendario Mensual</h3>
-                        <div>
-                            <a href="/calendar?month={{ prev_month.month }}&year={{ prev_month.year }}" 
-                               class="btn btn-sm btn-light me-2">
-                                &lt; {{ prev_month.text }}
-                            </a>
-                            <span class="fw-bold">{{ current_month }}</span>
-                            <a href="/calendar?month={{ next_month.month }}&year={{ next_month.year }}" 
-                               class="btn btn-sm btn-light ms-2">
-                                {{ next_month.text }} &gt;
-                            </a>
-                        </div>
-                    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center calendar-nav">
+                    <a href="/calendar?month={{ prev_month.month }}&year={{ prev_month.year }}" class="btn btn-light btn-sm">
+                        &lt; {{ prev_month.text }}
+                    </a>
+                    <h5 class="mb-0">{{ current_month }}</h5>
+                    <a href="/calendar?month={{ next_month.month }}&year={{ next_month.year }}" class="btn btn-light btn-sm">
+                        {{ next_month.text }} &gt;
+                    </a>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-bordered">
+                        <table class="table table-striped align-middle">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>Día</th>
+                                    <th>Fecha</th>
                                     <th>Registros</th>
-                                    <th>Total</th>
+                                    <th>Max</th>
                                     <th>Promedio</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -41,9 +32,13 @@
                                     <td>{{ day.count }}</td>
                                     <td>{{ "%.2f"|format(day.max_value) }}</td>
                                     <td>{{ "%.2f"|format(day.average) }}</td>
-                                    <td>
-                                        <a href="/?date={{ day.day }}" class="btn btn-sm btn-info">
-                                            Ver Detalles
+                                    <td class="d-flex gap-2">
+                                        <a href="/?date={{ day.day }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-search"></i>
+                                        </a>
+
+                                        <a id="downloadCsvBtn" class="btn btn-sm btn-outline-success" value="{{ day.day }}">
+                                            <i class="bi bi-download"></i>
                                         </a>
                                     </td>
                                 </tr>
@@ -54,36 +49,90 @@
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h3>Resumen Mensual</h3>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Días con datos
-                            <span class="badge bg-primary rounded-pill">{{ daily_totals|length }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Registros totales
-                            <span class="badge bg-primary rounded-pill">{{ monthly_summary.total_count }}</span>
-                        </li>
-			<li class="list-group-item d-flex justify-content-between align-items-center">
-			    Máximo mensual
-			    <span class="badge bg-primary rounded-pill">
-			        {{ "%.2f"|format(monthly_summary.max_value) }}  <!-- Cambiado de grand_total -->
-			    </span>
-			</li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Promedio diario
-                            <span class="badge bg-primary rounded-pill">{{ "%.2f"|format(monthly_summary.daily_avg) }}</span>
-                        </li>
-                    </ul>
-                </div>
+
+        <div class="col-lg-4">
+            <div class="summary-box">
+                <h6><i class="bi bi-clipboard-data"></i> Resumen del Mes</h6>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between">
+                        Días con datos:
+                        <span class="badge bg-primary">{{ daily_totals|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        Registros totales:
+                        <span class="badge bg-primary">{{ monthly_summary.total_count }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        Máximo mensual:
+                        <span class="badge bg-primary">{{ "%.2f"|format(monthly_summary.max_value) }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        Promedio diario:
+                        <span class="badge bg-primary">{{ "%.2f"|format(monthly_summary.daily_avg) }}</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
-</div>
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Aquí puedes agregar scripts específicos para el calendario si es necesario
+        	document.getElementById('downloadCsvBtn').addEventListener('click', downloadCSV);
+    });
+
+    // Función para descargar CSV
+	function downloadCSV() {
+	    const dateFilter = document.getElementById('downloadCsvBtn').value;
+	    const currentDate = dateFilter || new Date().toISOString().split('T')[0];
+	    const currentTime = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
+	    const filename = `${currentDate}-${currentTime}-rud1.csv`;
+	    
+	    let apiUrl = '/api/sensor/data?';
+        if (dateFilter) apiUrl += `date=${dateFilter}&`;
+        apiUrl += 'limit=all';
+        
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.data && data.data.length > 0) {
+                    const sortedData = data.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    const dataWithTimeDiff = sortedData.map((item, index, array) => {
+                        if (index === 0) {
+                            return {...item, time_diff: 0};
+                        }
+                        const prevTime = new Date(array[index-1].timestamp);
+                        const currTime = new Date(item.timestamp);
+                        const diffSeconds = Math.round((currTime - prevTime) / 1000);
+                        return {...item, time_diff: diffSeconds};
+                    });
+                    
+                    let csvContent = "Valor,Fecha/Hora,Tiempo entre lecturas (segundos)\n";
+                    dataWithTimeDiff.forEach(item => {
+                        csvContent += `${item.value},${item.timestamp},${item.time_diff}\n`;
+                    });
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('No hay datos para exportar.');
+                }
+            })
+            .catch(error => {
+                console.error('Error al generar CSV:', error);
+                alert('Error al generar el archivo CSV.');
+            });
+    
+    }
+    </script>
 {% endblock %}

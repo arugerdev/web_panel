@@ -1,65 +1,111 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="es">
 
-{% block content %}
-<div class="row">
-    <div class="col-md-6 offset-md-3">
-        <div class="card">
-            <div class="card-header bg-danger text-white">
-                <h2>Panel de Administración</h2>
-            </div>
-            <div class="card-body">
-                {% if message %}
-                <div class="alert alert-info">{{ message }}</div>
-                {% endif %}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Administración</title>
+  <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/css/bootstrap-icons.css">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .card {
+      border-radius: 1rem;
+      box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
 
-                <div class="d-grid gap-2">
-                    <form method="POST" action="/admin" onsubmit="return confirm('¿Estás seguro?');">
-                        <input type="hidden" name="action" value="reboot">
-                        <button type="submit" class="btn btn-warning btn-lg mb-3">
-                            <i class="bi bi-arrow-repeat"></i> Reiniciar Dispositivo
-                        </button>
-                    </form>
-
-                    <form method="POST" action="/admin"
-                        onsubmit="return confirm('¿Actualizar el sistema? Esto reiniciará los servicios.');">
-                        <input type="hidden" name="action" value="update_system">
-                        <button type="submit" class="btn btn-info btn-lg mb-3">
-                            <i class="bi bi-cloud-arrow-down"></i> Actualizar Sistema
-                        </button>
-                    </form>
-
-                    <form method="POST" action="/admin"
-                        onsubmit="return confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.');">
-                        <input type="hidden" name="action" value="clear_db">
-                        <button type="submit" class="btn btn-danger btn-lg">
-                            <i class="bi bi-trash"></i> Borrar Base de Datos
-                        </button>
-                    </form>
-                </div>
-
-                <div class="mt-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5>Estadísticas:</h5>
-                            <ul class="list-group">
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Registros en DB:
-                                    <span class="badge bg-primary rounded-pill">
-                                        {{ count }}
-                                    </span>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Último dato:
-                                    <span class="text-muted">
-                                        {{ last_record[1] if last_record else 'N/A' }}
-                                    </span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="/">Producción Alpacas</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/calendar"><i class="bi bi-calendar3"></i> Calendario</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/config"><i class="bi bi-wifi"></i> WiFi</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="/admin"><i class="bi bi-gear"></i> Admin</a>
+        </li>
+      </ul>
     </div>
-</div>
-{% endblock %}
+  </div>
+</nav>
+
+<main class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-danger text-white">
+          <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Panel de Administración</h5>
+        </div>
+        <div class="card-body">
+          {% if not session.admin_logged_in %}
+          <form method="POST" action="/admin">
+            <div class="mb-3">
+              <label for="admin_password" class="form-label">Contraseña de Administrador</label>
+              <input type="password" class="form-control" id="admin_password" name="admin_password" required>
+            </div>
+            <button type="submit" class="btn btn-danger w-100">
+              <i class="bi bi-unlock"></i> Ingresar
+            </button>
+          </form>
+          {% else %}
+            {% if message %}
+              <div class="alert alert-info mt-2">{{ message }}</div>
+            {% endif %}
+
+            <div class="d-grid gap-3">
+              <form method="POST" action="/admin" onsubmit="return confirm('¿Estás seguro de reiniciar?');">
+                <input type="hidden" name="action" value="reboot">
+                <button type="submit" class="btn btn-warning">
+                  <i class="bi bi-arrow-repeat"></i> Reiniciar Dispositivo
+                </button>
+              </form>
+
+              <form method="POST" action="/admin"
+                    onsubmit="return confirm('¿Actualizar el sistema? Esto reiniciará los servicios.');">
+                <input type="hidden" name="action" value="update_system">
+                <button type="submit" class="btn btn-info">
+                  <i class="bi bi-cloud-arrow-down"></i> Actualizar Sistema
+                </button>
+              </form>
+
+              <form method="POST" action="/admin"
+                    onsubmit="return confirm('¿Borrar TODOS los datos? Esto no se puede deshacer.');">
+                <input type="hidden" name="action" value="clear_db">
+                <button type="submit" class="btn btn-danger">
+                  <i class="bi bi-trash"></i> Borrar Base de Datos
+                </button>
+              </form>
+            </div>
+
+            <hr>
+            <h6 class="fw-bold">Estadísticas actuales</h6>
+            <ul class="list-group">
+              <li class="list-group-item d-flex justify-content-between">
+                Registros en DB:
+                <span class="badge bg-primary">{{ count }}</span>
+              </li>
+              <li class="list-group-item d-flex justify-content-between">
+                Último dato:
+                <span class="text-muted">{{ last_record[1] if last_record else 'N/A' }}</span>
+              </li>
+            </ul>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

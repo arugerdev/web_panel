@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import sqlite3
 from datetime import datetime, timedelta
 import subprocess
@@ -24,6 +24,8 @@ DB_PRAGMAS = {
     'synchronous': 'NORMAL'
 }
 
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'maes2admin')
+
 # Configuración de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +42,10 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', '1234567890abcdef')
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
+@app.context_processor
+def utility_processor():
+    return dict(get_machine_name=get_machine_name)
+
 # Helpers de base de datos
 def get_db_connection():
     """Obtiene una conexión a la base de datos con configuraciones optimizadas"""
@@ -51,6 +57,15 @@ def get_db_connection():
 def ensure_indexes():
     """Crea índices necesarios para optimizar consultas"""
     with closing(get_db_connection()) as conn:
+        
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sensor_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                value REAL NOT NULL,
+                timestamp DATETIME NOT NULL
+            )
+        """)
+        
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_timestamp 
             ON sensor_data(timestamp)
@@ -83,102 +98,68 @@ def execute_command(command, timeout=15):
 # Rutas principales
 @app.route('/')
 def index():
-    """Página principal con los últimos registros"""
-    try:
-        with closing(get_db_connection()) as conn:
-            limit = min(int(request.args.get('limit', 10)), 1000)
-            date_filter = request.args.get('date')
-            cursor = conn.cursor()
-            query = """
-                       SELECT value, timestamp 
-                       FROM sensor_data
-                       {date_filter}
-                       ORDER BY timestamp DESC 
-                       LIMIT ?
-                    """
-            params = []
+    limit = request.args.get("limit", "10")
+    date_filter = request.args.get("date")
 
-            whereclause = ""
-            if date_filter:
-                whereclause = "WHERE DATE(timestamp) = ?"
-                params.append(date_filter)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
-            params.append(limit)
+    query = "SELECT value, timestamp FROM sensor_data"
+    params = []
 
-            cursor.execute(query.format(date_filter=whereclause), params)
-            fetched = cursor.fetchall()
-            data = []
-            for row in fetched:
-                if len(row) >= 2:
-                   (value, timestamp) = row
-                   data.append({'value': value, 'timestamp': timestamp})
+    if date_filter:
+        query += " WHERE date(timestamp) = ?"
+        params.append(date_filter)
 
-        return render_template('index.html', 
-                            data=data, 
-                            current_year=datetime.now().year)
-    except Exception as e:
-        logger.error(f"Error en index: {str(e)}")
-        return render_template('error.html', message="Error al cargar datos"), 500
+    query += " ORDER BY timestamp DESC"
+    if limit != "all":
+        query += " LIMIT ?"
+        params.append(int(limit))
+
+    c.execute(query, params)
+    rows = c.fetchall()
+    data = [{"value": row[0], "timestamp": row[1]} for row in rows]
+
+    conn.close()
+    return render_template("index.html", data=data)
 
 # API de datos
 @app.route('/api/sensor/data', methods=['GET'])
-def get_sensor_data():
-    """API para obtener datos del sensor con paginación"""
-    try:
-        page = max(1, int(request.args.get('page', 1)))
-        per_page = min(100, int(request.args.get('limit', 10)))
-        date_filter = request.args.get('date')
+def api_sensor_data():
+    limit = request.args.get("limit", "10")
+    date_filter = request.args.get("date")
 
-        with closing(get_db_connection()) as conn:
-            cursor = conn.cursor()
-            
-            # Consulta de conteo
-            count_query = "SELECT COUNT(*) FROM sensor_data"
-            count_params = []
-            
-            if date_filter:
-                count_query += " WHERE DATE(timestamp) = ?"
-                count_params.append(date_filter)
-            
-            cursor.execute(count_query, count_params)
-            total = cursor.fetchone()[0]
-            
-            # Consulta de datos
-            data_query = """
-                SELECT value, timestamp 
-                FROM sensor_data
-                {date_filter}
-                ORDER BY timestamp DESC
-                LIMIT ? OFFSET ?
-            """
-            
-            params = []
-            where_clause = ""
-            
-            if date_filter:
-                where_clause = "WHERE DATE(timestamp) = ?"
-                params.append(date_filter)
-            
-            params.extend([per_page, (page - 1) * per_page])
-            
-            cursor.execute(data_query.format(date_filter=where_clause), params)
-            data = [{'value': row[0], 'timestamp': row[1]} for row in cursor]
-            
-            return jsonify({
-                'data': data,
-                'pagination': {
-                    'total': total,
-                    'page': page,
-                    'per_page': per_page,
-                    'total_pages': (total + per_page - 1) // per_page
-                }
-            })
-    except Exception as e:
-        logger.error(f"Error en get_sensor_data: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    query = "SELECT value, timestamp FROM sensor_data"
+    params = []
+
+    if date_filter:
+        query += " WHERE date(timestamp) = ?"
+        params.append(date_filter)
+
+    query += " ORDER BY timestamp DESC"
+    if limit != "all":
+        query += " LIMIT ?"
+        params.append(int(limit))
+
+    c.execute(query, params)
+    rows = c.fetchall()
+    data = [{"value": row[0], "timestamp": row[1]} for row in rows]
+
+    # Calcular diferencias
+    if date_filter and len(data) >= 2:
+        timestamps = [datetime.strptime(d["timestamp"], "%Y-%m-%d %H:%M:%S") for d in data]
+        diffs = [(timestamps[i] - timestamps[i + 1]).total_seconds() for i in range(len(timestamps) - 1)]
+        avg_diff = sum(diffs) / len(diffs)
+    else:
+        avg_diff = None
+
+    conn.close()
+    return jsonify({"data": data, "avg_diff": avg_diff})
 
 # Estadísticas y resúmenes
-@lru_cache(maxsize=32)
 def get_cached_daily_stats(month, year):
     """Obtiene estadísticas diarias con caché"""
     try:
@@ -204,17 +185,68 @@ def get_cached_daily_stats(month, year):
         logger.error(f"Error en get_cached_daily_stats: {str(e)}")
         return []
 
+def get_machine_name():
+    host = request.host  # Obtiene el dominio completo
+    machine_names = {
+        'disp00.rud1.es': 'Prensa Pequeña',
+        'disp01.rud1.es': 'Imabe',
+        'disp02.rud1.es': 'Jovisa'
+    }
+    
+    # Extraer solo el subdominio principal
+    domain_parts = host.split('.')
+    if len(domain_parts) > 2:
+        subdomain = domain_parts[0]
+        full_domain = f"{subdomain}.rud1.es"
+    else:
+        full_domain = host
+    
+    return machine_names.get(full_domain, 'Máquina Contador')
+
 @app.route('/api/sensor/daily_stats', methods=['GET'])
 def get_daily_stats():
-    """API para obtener estadísticas diarias"""
-    try:
-        month = int(request.args.get('month', datetime.now().month))
-        year = int(request.args.get('year', datetime.now().year))
-        stats = get_cached_daily_stats(month, year)
-        return jsonify(stats)
-    except Exception as e:
-        logger.error(f"Error en get_daily_stats: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+    date_filter = request.args.get("date")
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    if date_filter:
+        c.execute("SELECT value, timestamp FROM sensor_data WHERE date(timestamp) = ? ORDER BY timestamp ASC", (date_filter,))
+        rows = c.fetchall()
+        if rows:
+            values = [r[0] for r in rows]
+            timestamps = [datetime.strptime(r[1], "%Y-%m-%d %H:%M:%S") for r in rows]
+            diffs = [(timestamps[i] - timestamps[i - 1]).total_seconds() for i in range(1, len(timestamps))]
+            avg_diff = sum(diffs) / len(diffs) if diffs else 0
+            result = [{
+                "day": date_filter,
+                "count": len(values),
+                "average": round(sum(values) / len(values), 2),
+                "max_value": max(values),
+                "avg_diff": round(avg_diff, 2)
+            }]
+        else:
+            result = []
+    else:
+        c.execute("SELECT date(timestamp), COUNT(*), AVG(value), MAX(value) FROM sensor_data GROUP BY date(timestamp)")
+        rows = c.fetchall()
+        result = []
+        for day, count, avg, max_val in rows:
+            c.execute("SELECT timestamp FROM sensor_data WHERE date(timestamp) = ? ORDER BY timestamp ASC", (day,))
+            ts_rows = c.fetchall()
+            timestamps = [datetime.strptime(r[0], "%Y-%m-%d %H:%M:%S") for r in ts_rows]
+            diffs = [(timestamps[i] - timestamps[i - 1]).total_seconds() for i in range(1, len(timestamps))]
+            avg_diff = sum(diffs) / len(diffs) if diffs else 0
+            result.append({
+                "day": day,
+                "count": count,
+                "average": round(avg, 2),
+                "max_value": max_val,
+                "avg_diff": round(avg_diff, 2)
+            })
+
+    conn.close()
+    return jsonify(result)
 
 # Configuración WiFi
 @app.route('/config', methods=['GET', 'POST'])
@@ -338,73 +370,80 @@ def get_current_wifi():
         logger.error(f"Error en get_current_wifi: {str(e)}")
         return "Desconocido"
 
-# Panel de administración
+#Panel de administración
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_panel():
-    """Panel de administración del sistema"""
     try:
+        if request.method == 'POST':
+            if not session.get('admin_logged_in'):
+                password = request.form.get('admin_password')
+                if password == ADMIN_PASSWORD:
+                    session['admin_logged_in'] = True
+                else:
+                    return render_template('admin.html', message='Contraseña incorrecta')
+            else:
+                action = request.form.get('action')
+                message = ""
+
+                if action == 'reboot':
+                    result = execute_command(['sudo', 'reboot'])
+                    message = "Reiniciando..." if result['success'] else f"Error: {result.get('error', 'Desconocido')}"
+
+                elif action == 'clear_db':
+                    try:
+                        with closing(get_db_connection()) as conn:
+                            conn.execute("DELETE FROM sensor_data")
+                            conn.commit()
+                        message = "Base de datos borrada"
+                    except Exception as e:
+                        message = f"Error al borrar datos: {str(e)}"
+
+                elif action == 'update_system':
+                    try:
+                        update_script = '/home/rud1/scripts/update_system.sh'
+                        if not os.path.exists(update_script):
+                            message = "Error: Script de actualización no encontrado"
+                        else:
+                            def run_update():
+                                subprocess.Popen([
+                                    'sudo', 'nohup', update_script,
+                                    '>/tmp/update.log', '2>/tmp/update_error.log', '&'
+                                ], preexec_fn=os.setpgrp)
+                            Thread(target=run_update).start()
+                            message = "Actualización iniciada. El sistema se reiniciará cuando termine."
+                    except Exception as e:
+                        message = f"Error al iniciar actualización: {str(e)}"
+
+                with closing(get_db_connection()) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM sensor_data")
+                    count = cursor.fetchone()[0]
+                    cursor.execute("SELECT value, timestamp FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
+                    last_record = cursor.fetchone()
+
+                return render_template('admin.html', message=message, count=count, last_record=last_record)
+
+        if not session.get('admin_logged_in'):
+            return render_template('admin.html')
+
         with closing(get_db_connection()) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM sensor_data")
             count = cursor.fetchone()[0]
-            
             cursor.execute("SELECT value, timestamp FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
             last_record = cursor.fetchone()
-        
-        if request.method == 'POST':
-            action = request.form.get('action')
-            message = ""
-            
-            if action == 'reboot':
-                result = execute_command(['sudo', 'reboot'])
-                message = "Reiniciando..." if result['success'] else f"Error: {result.get('error', 'Desconocido')}"
-            
-            elif action == 'clear_db':
-                try:
-                    with closing(get_db_connection()) as conn:
-                        conn.execute("DELETE FROM sensor_data")
-                        conn.commit()
-                    message = "Base de datos borrada"
-                    # Limpiar caché de estadísticas
-                    get_cached_daily_stats.cache_clear()
-                except Exception as e:
-                    message = f"Error al borrar datos: {str(e)}"
-            
-            elif action == 'update_system':
-                try:
-                    update_script = '/home/rud1/scripts/update_system.sh'
-                    
-                    if not os.path.exists(update_script):
-                        message = "Error: Script de actualización no encontrado"
-                    else:
-                        # Ejecutar en segundo plano y desconectar completamente
-                        
-                        def run_update():
-                            # Usamos nohup y redirección para desconectar completamente
-                            subprocess.Popen([
-                                'sudo', 'nohup', update_script,
-                                '>/tmp/update.log', '2>/tmp/update_error.log', '&'
-                            ], preexec_fn=os.setpgrp)
-                        
-                        # Lanzar en un hilo para no bloquear la respuesta
-                        Thread(target=run_update).start()
-                        
-                        message = "Actualización iniciada. El sistema se reiniciará cuando termine."
-                        
-                except Exception as e:
-                    message = f"Error al iniciar actualización: {str(e)}"
-            
-            return render_template('admin.html', 
-                                message=message,
-                                count=count,
-                                last_record=last_record)
-        
-        return render_template('admin.html',
-                            count=count,
-                            last_record=last_record)
+
+        return render_template('admin.html', count=count, last_record=last_record)
+
     except Exception as e:
         logger.error(f"Error en admin_panel: {str(e)}")
         return render_template('error.html', message="Error en el panel de administración"), 500
+
+# Ruta para cerrar sesión de admin
+@app.route('/logout_admin')
+def logout_admin():
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('admin_panel'))
 
 # Calendario de datos
 @app.route('/calendar')
